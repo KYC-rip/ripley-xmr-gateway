@@ -1,11 +1,11 @@
 services:
   monerod:
     image: sethsimmons/simple-monerod:latest
-    container_name: monerod-stagenet
+    container_name: monero-node
     restart: unless-stopped
     ports:
-      - "38081:38081" # Stagenet P2P
-      - "127.0.0.1:38089:38089" # Stagenet RPC
+      - "38081:38081" # P2P (Standardized to 38081 on host for consistency)
+      - "127.0.0.1:38089:38089" # RPC (Standardized to 38089 on host)
     volumes:
       - ./data/monerod:/home/monero/.bitmonero
     command:
@@ -14,18 +14,16 @@ services:
       - --rpc-bind-port=38089
       - --confirm-external-bind
       - --restricted-rpc
-      - --add-peer=nodes.hashvault.pro:38081
-      - --add-peer=stagenet.melo.me:38081
-      - --add-peer=stagenet.community.rino.io:38081
-      - --bootstrap-daemon-address=stagenet.melo.me:38081
+      # Removed hardcoded Stagenet-only peers to support Mainnet/Testnet automatically
+      - --bootstrap-daemon-login=none # Optional, for ease of use
       - --log-level=1
 
   wallet-rpc:
     image: sethsimmons/simple-monero-wallet-rpc:latest
-    container_name: monero-wallet-rpc-stagenet
+    container_name: monero-wallet-rpc
     restart: unless-stopped
     ports:
-      - "127.0.0.1:38083:38083" # Localhost only Stagenet Wallet RPC
+      - "127.0.0.1:38083:38083" # Localhost only Wallet RPC
     volumes:
       - ./data/wallet:/home/monero
     command:
@@ -33,15 +31,15 @@ services:
       - --rpc-bind-port=38083
       - --wallet-dir=/home/monero
       - --disable-rpc-login
-      - --daemon-address=rpc-${MONERO_NETWORK:-stagenet}.kyc.rip:443
+      # Use dynamic public node from kyc.rip infrastructure or user provided env
+      - --daemon-address=${MONERO_DAEMON_ADDRESS:-rpc-${MONERO_NETWORK:-stagenet}.kyc.rip:443}
       - --daemon-ssl=enabled
       - --daemon-ssl-allow-any-cert
+    depends_on:
+      - monerod
 
   gateway:
-    image: ghcr.io/kyc-rip/ripley-xmr-gateway:latest # Pre-built production image
-    # build: 
-    #   context: .
-    #   dockerfile: docker/Dockerfile
+    image: ghcr.io/kyc-rip/ripley-xmr-gateway:latest
     container_name: ripley-xmr-gateway
     restart: unless-stopped
     depends_on:
