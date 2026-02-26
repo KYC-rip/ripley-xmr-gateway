@@ -4,8 +4,8 @@ services:
     container_name: monero-node
     restart: unless-stopped
     ports:
-      - "38081:38081" # P2P (Standardized to 38081 on host for consistency)
-      - "127.0.0.1:38089:38089" # RPC (Standardized to 38089 on host)
+      - "38081:38081" # P2P
+      - "127.0.0.1:38089:38089" # RPC
     volumes:
       - ./data/monerod:/home/monero/.bitmonero
     command:
@@ -14,8 +14,6 @@ services:
       - --rpc-bind-port=38089
       - --confirm-external-bind
       - --restricted-rpc
-      # Removed hardcoded Stagenet-only peers to support Mainnet/Testnet automatically
-      - --bootstrap-daemon-login=none # Optional, for ease of use
       - --log-level=1
 
   wallet-rpc:
@@ -31,9 +29,11 @@ services:
       - --rpc-bind-port=38083
       - --wallet-dir=/home/monero
       - --disable-rpc-login
-      # Use dynamic public node from kyc.rip infrastructure or user provided env
-      - --daemon-address=${MONERO_DAEMON_ADDRESS:-rpc-${MONERO_NETWORK:-stagenet}.kyc.rip:443}
-      - --daemon-ssl=enabled
+      # Primary Node: The local monerod service
+      - --daemon-address=monero-node:38089
+      # Bootstrap Node: Remote fallback to allow immediate use while local node syncs
+      - --bootstrap-daemon-address=${MONERO_BOOTSTRAP_ADDRESS:-rpc-${MONERO_NETWORK:-stagenet}.kyc.rip:443}
+      - --daemon-ssl=enabled # Note: local monerod is restricted-rpc but usually doesn't need SSL internally, but we'll keep it for the bootstrap fallback
       - --daemon-ssl-allow-any-cert
     depends_on:
       - monerod
