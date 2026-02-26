@@ -1,0 +1,63 @@
+services:
+  monerod:
+    image: sethsimmons/simple-monerod:latest
+    container_name: monerod-stagenet
+    restart: unless-stopped
+    ports:
+      - "38081:38081" # Stagenet P2P
+      - "127.0.0.1:38089:38089" # Stagenet RPC
+    volumes:
+      - ./data/monerod:/home/monero/.bitmonero
+    command:
+      - --stagenet
+      - --rpc-bind-ip=0.0.0.0
+      - --rpc-bind-port=38089
+      - --confirm-external-bind
+      - --restricted-rpc
+      - --add-peer=nodes.hashvault.pro:38081
+      - --add-peer=stagenet.melo.me:38081
+      - --add-peer=stagenet.community.rino.io:38081
+      - --bootstrap-daemon-address=stagenet.melo.me:38081
+      - --log-level=1
+
+  wallet-rpc:
+    image: sethsimmons/simple-monero-wallet-rpc:latest
+    container_name: monero-wallet-rpc-stagenet
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:38083:38083" # Localhost only Stagenet Wallet RPC
+    volumes:
+      - ./data/wallet:/home/monero
+    command:
+      - --stagenet
+      - --rpc-bind-port=38083
+      - --wallet-dir=/home/monero
+      - --disable-rpc-login
+      - --daemon-address=rpc-stagenet.kyc.rip:443
+      - --daemon-ssl=enabled
+      - --daemon-ssl-allow-any-cert
+
+  gateway:
+    image: ghcr.io/kyc-rip/ripley-xmr-gateway:latest # Pre-built production image
+    # build: 
+    #   context: .
+    #   dockerfile: docker/Dockerfile
+    container_name: ripley-xmr-gateway
+    restart: unless-stopped
+    depends_on:
+      - wallet-rpc
+    ports:
+      - "127.0.0.1:38084:38084"
+    environment:
+      - WALLET_RPC_URL=http://wallet-rpc:38083/json_rpc
+      - AGENT_API_KEY=${AGENT_API_KEY:-ripley_secure_key_123}
+
+  tunnel:
+    image: cloudflare/cloudflared
+    container_name: monero-gateway-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - gateway
