@@ -17,11 +17,16 @@ gemini skills install https://github.com/KYC-rip/ripley-xmr-gateway.git --path s
 ```
 
 **OpenClaw / ClawHub**:
-Install directly via ClawHub or link it locally:
-- **ClawHub**: [https://clawhub.ai/xbtoshi/monero-wallet](https://clawhub.ai/xbtoshi/monero-wallet)
-- **Local Link**:
+The Monero Wallet skill is published on [ClawHub](https://clawhub.ai/xbtoshi/monero-wallet).
+Install it directly into your workspace:
 ```bash
-# Link to your OpenClaw workspace
+# Recommended: Install via ClawHub CLI
+clawhub install monero-wallet
+```
+
+Alternatively, link it locally:
+```bash
+# Manual Link
 ln -s /path/to/ripley-xmr-gateway/skills/monero-wallet ~/.openclaw/skills/monero-wallet
 ```
 
