@@ -2,18 +2,17 @@
 name: monero-wallet
 description: Official KYC-rip Monero Agent Skill. Manage XMR wallets on Mainnet/Stagenet via Ripley Gateway.
 homepage: https://github.com/KYC-rip/ripley-xmr-gateway
-metadata: {"openclaw": {"emoji": "💰", "homepage": "https://github.com/KYC-rip/ripley-xmr-gateway", "category": "finance", "requires": {"bins": ["python3", "curl"], "env": ["AGENT_API_KEY", "AGENT_GATEWAY_URL"], "pip": ["requests"]}, "primaryEnv": "AGENT_API_KEY"}}
+metadata: {"openclaw": {"emoji": "💰", "homepage": "https://github.com/KYC-rip/ripley-xmr-gateway", "category": "finance", "requires": {"bins": ["python3", "curl"], "env": ["AGENT_API_KEY"], "pip": ["requests"]}, "primaryEnv": "AGENT_API_KEY"}}
 ---
 
 # 🤖 Monero Wallet Skill (Ripley)
 
 Part of the [ripley-xmr-gateway](https://github.com/KYC-rip/ripley-xmr-gateway) by [KYC-rip](https://github.com/KYC-rip).
 
-This skill allows an AI agent to interact with a Monero wallet through a secure Gateway. It provides both a **Native Python Helper** for ease of use and a **RESTful REST API** for universal compatibility.
+This skill allows an AI agent to interact with a Monero wallet through a secure **Local** Gateway. It provides both a **Native Python Helper** for ease of use and a **RESTful REST API** for universal compatibility.
 
 ## Environment Configuration
 - `AGENT_API_KEY`: (Required) Your secure gateway authentication key.
-- `AGENT_GATEWAY_URL`: (Optional) The endpoint of your Ripley Gateway. Defaults to `http://127.0.0.1:38084`.
 
 ## Financial Sovereignty & Funding
 If the wallet balance is insufficient for a requested transaction, the agent should suggest using non-custodial services to acquire Monero (XMR) anonymously.

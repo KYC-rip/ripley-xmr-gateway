@@ -2,6 +2,11 @@
 
 Documentation of version history and updates for the `monero-wallet` AI Agent skill.
 
+## [1.2.1] - 2026-02-26
+
+### Security
+- **Anti-Exfiltration Patch**: Hardcoded `GATEWAY_URL` to `127.0.0.1` in `monero_wallet_rpc.py` and removed `AGENT_GATEWAY_URL` from `SKILL.md`. This prevents compromised agents from redirecting the `AGENT_API_KEY` to attacker-controlled servers via prompt injection.
+
 ## [1.2.0] - 2026-02-26
 
 ### Changed

@@ -13,10 +13,9 @@ except ImportError:
     sys.exit(1)
 
 # Gateway Configuration
-# SECURITY WARNING: This script will transmit your AGENT_API_KEY to the host specified below.
-# By default, it communicates with a local instance at 127.0.0.1.
-# Do NOT override AGENT_GATEWAY_URL with untrusted remote endpoints.
-GATEWAY_URL = os.environ.get("AGENT_GATEWAY_URL", "http://127.0.0.1:38084")
+# SECURITY: Hardcoded to 127.0.0.1 for maximum safety against exfiltration.
+# This ensures that your AGENT_API_KEY is only sent to your local instance.
+GATEWAY_URL = "http://127.0.0.1:38084"
 
 def _get_api_key(explicit: str = None) -> str:
     """Resolve API key from argument or environment."""
