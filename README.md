@@ -16,10 +16,12 @@ This gateway is the bridge that allows your AI agents to become sovereign financ
 gemini skills install https://github.com/KYC-rip/ripley-xmr-gateway.git --path skills/monero-wallet
 ```
 
-**OpenClaw**:
-Add this repository to your `~/.openclaw/openclaw.json` or link it locally:
+**OpenClaw / ClawHub**:
+Install directly via ClawHub or link it locally:
+- **ClawHub**: [https://clawhub.ai/xbtoshi/monero-wallet](https://clawhub.ai/xbtoshi/monero-wallet)
+- **Local Link**:
 ```bash
-# Link the skills folder to your OpenClaw workspace
+# Link to your OpenClaw workspace
 ln -s /path/to/ripley-xmr-gateway/skills/monero-wallet ~/.openclaw/skills/monero-wallet
 ```
 
