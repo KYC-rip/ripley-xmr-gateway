@@ -2,6 +2,11 @@
 
 Documentation of version history and updates for the `monero-wallet` AI Agent skill.
 
+## [1.2.2] - 2026-02-26
+
+### Fixed
+- **Instruction Consistency**: Removed all references to the undeclared `$AGENT_GATEWAY_URL` in `SKILL.md` examples. Standardized all manual `curl` examples to use `http://127.0.0.1:38084` to match the hardcoded security logic in the helper script. This resolves OpenClaw's "contradictory instructions" flag.
+
 ## [1.2.1] - 2026-02-26
 
 ### Security

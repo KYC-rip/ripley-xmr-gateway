@@ -55,7 +55,7 @@ If the Python environment is unavailable, use `curl` to talk directly to the Gat
 
 Example:
 ```bash
-curl -H "X-API-KEY: $AGENT_API_KEY" $AGENT_GATEWAY_URL/sync
+curl -H "X-API-KEY: $AGENT_API_KEY" http://127.0.0.1:38084/sync
 ```
 
 ## Security & Privacy
