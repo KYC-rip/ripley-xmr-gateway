@@ -15,8 +15,9 @@ Run this command to set up and launch your Ripley Gateway in seconds:
 
 ```bash
 mkdir ripley && cd ripley && \
-curl -sSL https://raw.githubusercontent.com/KYC-rip/ripley-xmr-gateway/main/docker-compose.yml -o docker-compose.yml && \
-echo "MONERO_NETWORK=stagenet\nAGENT_API_KEY=ripley_$(openssl rand -hex 8)" > .env && \
+export KEY="ripley_$(openssl rand -hex 8)" && \
+echo "MONERO_NETWORK=stagenet\nAGENT_API_KEY=$KEY" > .env && \
+echo "Your API Key is: $KEY" && \
 docker-compose up -d
 ```
 
