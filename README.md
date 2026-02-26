@@ -9,17 +9,16 @@ Named after the central character who values survival, independence, and raw com
 
 This gateway is the bridge that allows your AI agents to become sovereign financial entities, free from the constraints of centralized payment rails.
 
-## Quick Start (One-Liner) 🚀
+## 🚀 Quick Start (One-Liner)
 
-Run this command to set up and launch your Ripley Gateway in seconds:
+Deploy your own secure Ripley Gateway in seconds. This script prepares the environment, handles filesystem permissions, generates a secure `AGENT_API_KEY`, and starts the Docker stack.
 
 ```bash
-mkdir ripley && cd ripley && \
-export KEY="ripley_$(openssl rand -hex 8)" && \
-echo "MONERO_NETWORK=stagenet\nAGENT_API_KEY=$KEY" > .env && \
-echo "Your API Key is: $KEY" && \
-docker-compose up -d
+curl -sL https://raw.githubusercontent.com/KYC-rip/ripley-xmr-gateway/main/scripts/install.sh | bash
 ```
+
+> [!IMPORTANT]
+> **API Key Visibility**: The script will output your generated `AGENT_API_KEY` at the end. Copy it immediately to configure your AI Agent skills.
 
 ### 1. Installation for AI Agents
 
@@ -42,7 +41,6 @@ Alternatively, link it locally:
 ln -s /path/to/ripley-xmr-gateway/skills/monero-wallet ~/.openclaw/skills/monero-wallet
 ```
 
-### 2. Deployment (Gateway)
 
 ## Features
 - **Stateless AI Integration**: Connect any AI model (Gemini, GPT-4, etc.) to Monero via standard HTTP.
@@ -51,9 +49,6 @@ ln -s /path/to/ripley-xmr-gateway/skills/monero-wallet ~/.openclaw/skills/monero
 - **Global Reach**: Integrated Cloudflare Tunnel support for global access without open ports.
 - **Secure**: Header-based `X-API-KEY` authentication.
 
-```bash
-docker-compose -f docker-compose.yml up --build -d
-```
 
 ### Configuration
 Edit the `.env` file to customize your gateway:
