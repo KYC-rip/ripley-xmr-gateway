@@ -14,6 +14,8 @@ services:
       - --rpc-bind-port=38089
       - --confirm-external-bind
       - --restricted-rpc
+      # Bootstrap Node: Remote fallback to allow immediate use while local node syncs
+      - --bootstrap-daemon-address=${MONERO_BOOTSTRAP_ADDRESS:-rpc-${MONERO_NETWORK:-stagenet}.kyc.rip:443}
       - --log-level=1
 
   wallet-rpc:
@@ -29,12 +31,9 @@ services:
       - --rpc-bind-port=38083
       - --wallet-dir=/home/monero
       - --disable-rpc-login
-      # Primary Node: The local monerod service
+      # Primary Node: The local monerod service (it will handle bootstrap fallback itself)
       - --daemon-address=monero-node:38089
-      # Bootstrap Node: Remote fallback to allow immediate use while local node syncs
-      - --bootstrap-daemon-address=${MONERO_BOOTSTRAP_ADDRESS:-rpc-${MONERO_NETWORK:-stagenet}.kyc.rip:443}
-      - --daemon-ssl=enabled # Note: local monerod is restricted-rpc but usually doesn't need SSL internally, but we'll keep it for the bootstrap fallback
-      - --daemon-ssl-allow-any-cert
+      - --daemon-ssl=disabled # Internal docker network, no SSL needed
     depends_on:
       - monerod
 
