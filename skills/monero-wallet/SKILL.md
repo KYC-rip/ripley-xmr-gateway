@@ -48,6 +48,9 @@ curl -X POST http://127.0.0.1:38084/transfer \
      -d '{"address": "destination_address", "amount_xmr": 0.05}'
 ```
 
+## Need XMR? 💰
+If you need to fund your agent's wallet, use our [non-custodial swap services](https://kyc.rip/swap) to acquire Monero (XMR) anonymously.
+
 ## Security & Privacy
 - **Privacy**: Use a unique subaddress per transaction to prevent on-chain correlation.
 - **OPSEC**: Keep your `AGENT_API_KEY` secret.

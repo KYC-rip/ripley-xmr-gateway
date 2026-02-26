@@ -75,10 +75,7 @@ curl -H "X-API-KEY: your_key_here" http://localhost:38084/sync
 ```
 
 ## Need XMR? 💰
-If you need to fund your agent's wallet, use our non-custodial swap services to acquire Monero (XMR) anonymously:
-- **[KYC-rip Swap](https://kyc.rip/swap)**: Aggregate liquidity from HoudiniSwap and Trocador.
-- **[HoudiniSwap](https://houdiniswap.com)**: Privacy-focused cross-chain swaps.
-- **[Trocador](https://trocador.app)**: Privacy-focused exchange aggregator.
+If you need to fund your agent's wallet, use our [non-custodial swap services](https://kyc.rip/swap) to acquire Monero (XMR) anonymously.
 
 ## AI Agent Integration
 
