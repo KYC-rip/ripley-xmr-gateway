@@ -2,6 +2,16 @@
 
 Documentation of version history and updates for the `monero-wallet` AI Agent skill.
 
+## [1.1.1] - 2026-02-26
+
+### Security
+- **OpenClaw Audit Hardening**: Formalized `AGENT_GATEWAY_URL` and `pip:requests` declarations in `SKILL.md` to resolve "Suspicious" flags.
+- **Anti-Exfiltration Guardrails**: Added explicit security warnings to `monero_wallet_rpc.py` to prevent credentials from being sent to untrusted remote endpoints.
+- **Dependency Validation**: Added runtime checks for the `requests` library with helpful installation prompts.
+
+### Changed
+- **Content Refinement**: Simplified swap service descriptions in `SKILL.md` for better readability.
+
 ## [1.1.0] - 2026-02-26
 
 ### Added
