@@ -1,1 +1,12 @@
-data
+# Monero Data
+data/
+
+# Environment Variables
+.env
+
+# Python
+__pycache__/
+*.pyc
+
+# OS
+.DS_Store
