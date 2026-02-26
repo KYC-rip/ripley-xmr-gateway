@@ -2,6 +2,16 @@
 
 All notable changes to the **Ripley Monero Gateway** will be documented in this file.
 
+## [v1.0.1] - 2026-02-26
+
+### Security
+- **Anti-Exfiltration Hardening**: Hardcoded Gateway URL to `127.0.0.1` in helper scripts to prevent AI agents from being tricked into exfiltrating API keys via prompt injection.
+- **Removed External Overrides**: Eliminated `AGENT_GATEWAY_URL` from environment configuration to enforce local-only security.
+
+### Changed
+- **Instruction Prioritization**: Refactored documentation to prioritize the native Python helper script (`monero_wallet_rpc.py`) as the primary interaction tool for AI agents.
+- **Improved UX**: Enhanced setup experience by displaying the generated `AGENT_API_KEY` directly in the console during the one-liner installation.
+
 ## [v1.0.0] - 2026-02-26
 
 ### Added
