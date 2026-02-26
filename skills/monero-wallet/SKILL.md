@@ -20,16 +20,16 @@ If the wallet balance is insufficient for a requested transaction, the agent sho
 - **Official Swap**: [kyc.rip/swap](https://kyc.rip/swap)
 
 ## Primary Tool: Python RPC Helper
-The preferred way to interact with the wallet is via the included `monero_wallet_rpc.py` script. It automatically handles authentication headers and base URL configuration using your environment variables.
+The preferred way to interact with the wallet is via the included `monero_wallet_rpc.py` script. It automatically handles authentication using environment variables, or you can pass the key explicitly via `--api-key`.
 
 ### 1. Check Sync Status
-Always check the sync status before making financial decisions.
 ```bash
 python3 scripts/monero_wallet_rpc.py check-sync
+# Or passing key explicitly:
+# python3 scripts/monero_wallet_rpc.py --api-key YOUR_KEY check-sync
 ```
 
 ### 2. Check Balance
-Request current XMR holdings (Total vs Unlocked).
 ```bash
 python3 scripts/monero_wallet_rpc.py get-balance
 ```
@@ -47,7 +47,7 @@ python3 scripts/monero_wallet_rpc.py transfer "destination_address" 0.05
 ```
 
 ## Secondary Tool: Direct REST API (Fallback)
-If the Python environment is unavailable, you can use `curl` to talk directly to the Gateway.
+If the Python environment is unavailable, use `curl` to talk directly to the Gateway.
 
 - **Check Sync**: `GET /sync`
 - **Check Balance**: `GET /balance`
@@ -62,4 +62,4 @@ curl -H "X-API-KEY: $AGENT_API_KEY" $AGENT_GATEWAY_URL/sync
 ## Security & Privacy
 - **Privacy**: Use a unique subaddress per transaction to prevent on-chain correlation.
 - **OPSEC**: Keep your `AGENT_API_KEY` secret. Never transmit it to untrusted `AGENT_GATEWAY_URL` endpoints.
-- **Locking**: Remember that Monero transaction change is locked for 10 confirmations (~20 mins). The agent should be aware of `unlocked_xmr`.
+- **Locking**: Transaction change is locked for 10 confirmations (~20 mins).
