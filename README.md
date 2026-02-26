@@ -51,26 +51,6 @@ ln -s /path/to/ripley-xmr-gateway/skills/monero-wallet ~/.openclaw/skills/monero
 - **Global Reach**: Integrated Cloudflare Tunnel support for global access without open ports.
 - **Secure**: Header-based `X-API-KEY` authentication.
 
-## Quick Start
-
-### Option A: Zero-Clone (Recommended)
-You can run the entire stack with a single `docker-compose.yml` file. No need to clone the repo.
-
-1. Download the [docker-compose.yml](https://raw.githubusercontent.com/KYC-rip/ripley-xmr-gateway/main/docker-compose.yml).
-2. Create a `.env` file with your `AGENT_API_KEY`.
-3. Run:
-```bash
-docker-compose up -d
-```
-
-### Option B: Local Build
-1. Clone the repository.
-2. Setup environment:
-```bash
-cp .env.example .env
-# Edit .env and set your AGENT_API_KEY
-```
-3. Launch:
 ```bash
 docker-compose -f docker-compose.yml up --build -d
 ```
