@@ -1,10 +1,21 @@
 import os
 import sys
 import json
-import requests
 import argparse
 
-# Gateway Configuration - The script now talks to the secure Ripley Gateway
+# --- SECURITY & DEPENDENCY CHECK ---
+# Explicitly checking for 'requests' to satisfy OpenClaw runtime safety requirements.
+try:
+    import requests
+except ImportError:
+    print("Error: The 'requests' library is missing.", file=sys.stderr)
+    print("Please install it via: pip install requests", file=sys.stderr)
+    sys.exit(1)
+
+# Gateway Configuration
+# SECURITY WARNING: This script will transmit your AGENT_API_KEY to the host specified below.
+# By default, it communicates with a local instance at 127.0.0.1.
+# Do NOT override AGENT_GATEWAY_URL with untrusted remote endpoints.
 GATEWAY_URL = os.environ.get("AGENT_GATEWAY_URL", "http://127.0.0.1:38084")
 
 def _get_api_key(explicit: str = None) -> str:
