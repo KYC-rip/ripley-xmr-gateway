@@ -2,6 +2,13 @@
 
 Documentation of version history and updates for the `monero-wallet` AI Agent skill.
 
+## [1.2.0] - 2026-02-26
+
+### Changed
+- **Instruction Prioritization**: Refactored `SKILL.md` to prioritize the native Python helper (`monero_wallet_rpc.py`) as the primary interaction tool for agents.
+- **REST API Fallback**: Categorized direct HTTP/Curl calls as a secondary fallback method for universal compatibility.
+- **Improved UX**: Agents are now instructed to use the script, which automatically handles environment-injected API keys and Gateway URLs.
+
 ## [1.1.1] - 2026-02-26
 
 ### Security
