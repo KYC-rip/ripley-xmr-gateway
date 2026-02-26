@@ -1,6 +1,8 @@
 ---
 name: monero-wallet
-description: Official KYC-rip Monero Agent Skill. Manage XMR wallets on Mainnet/Stagenet. Can check balance, generate subaddresses, and transfer funds.
+description: Official KYC-rip Monero Agent Skill. Manage XMR wallets on Mainnet/Stagenet.
+homepage: https://github.com/KYC-rip/ripley-xmr-gateway
+metadata: {"openclaw": {"homepage": "https://github.com/KYC-rip/ripley-xmr-gateway", "category": "finance"}}
 ---
 
 # 🤖 Monero Wallet Skill (Ripley)

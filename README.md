@@ -10,9 +10,17 @@ Named after the central character who values survival, independence, and raw com
 This gateway is the bridge that allows your AI agents to become sovereign financial entities, free from the constraints of centralized payment rails.
 
 ### 1. Installation for AI Agents
-If you are using the `gemini` CLI or a compatible agent environment, you can install this skill directly:
+
+**Gemini Skills CLI**:
 ```bash
 gemini skills install https://github.com/KYC-rip/ripley-xmr-gateway.git --path skills/monero-wallet
+```
+
+**OpenClaw**:
+Add this repository to your `~/.openclaw/openclaw.json` or link it locally:
+```bash
+# Link the skills folder to your OpenClaw workspace
+ln -s /path/to/ripley-xmr-gateway/skills/monero-wallet ~/.openclaw/skills/monero-wallet
 ```
 
 ### 2. Deployment (Gateway)
