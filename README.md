@@ -40,6 +40,12 @@ cp .env.example .env
 docker-compose -f docker-compose.yml up --build -d
 ```
 
+### Configuration
+Edit the `.env` file to customize your gateway:
+- `MONERO_NETWORK`: Target network (`mainnet` or `stagenet`).
+- `AGENT_API_KEY`: Secure key for gateway authentication.
+- `CLOUDFLARE_TUNNEL_TOKEN`: Optional, for global access.
+
 ### 4. Verify
 ```bash
 curl -H "X-API-KEY: your_key_here" http://localhost:38084/sync

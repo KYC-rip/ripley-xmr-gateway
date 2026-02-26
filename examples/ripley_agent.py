@@ -19,6 +19,13 @@ client = genai.Client(api_key=API_KEY)
 GATEWAY_URL = "http://127.0.0.1:38084"
 GATEWAY_API_KEY = "ripley_secure_key_123" # Must match Agent API's key
 
+# Fetch current network from gateway
+try:
+    _status = requests.get(f"{GATEWAY_URL}/sync", headers={"X-API-KEY": GATEWAY_API_KEY}, timeout=5).json()
+    MONERO_NETWORK = _status.get("network", "stagenet")
+except:
+    MONERO_NETWORK = "stagenet" # Fallback
+
 # ======= 2. AI TOOLS / SKILLS (VIA GATEWAY) =======
 
 def api_request(endpoint: str, method: str = "GET", data: dict = None):
@@ -80,7 +87,7 @@ def run_agent(user_prompt: str):
         "to pay for infrastructure autonomously. You value privacy and OPSEC. "
         "IMPORTANT: Always check your sync status (`check_sync_status`) if your balance seems "
         "outdated or if you are waiting for funds. You can only spend 'unlocked' funds. "
-        "We are currently on the STAGENET network."
+        "We are currently on the {MONERO_NETWORK.upper()} network."
     )
 
     try:

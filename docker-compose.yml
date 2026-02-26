@@ -9,7 +9,7 @@ services:
     volumes:
       - ./data/monerod:/home/monero/.bitmonero
     command:
-      - --stagenet
+      - --${MONERO_NETWORK:-stagenet}
       - --rpc-bind-ip=0.0.0.0
       - --rpc-bind-port=38089
       - --confirm-external-bind
@@ -29,11 +29,11 @@ services:
     volumes:
       - ./data/wallet:/home/monero
     command:
-      - --stagenet
+      - --${MONERO_NETWORK:-stagenet}
       - --rpc-bind-port=38083
       - --wallet-dir=/home/monero
       - --disable-rpc-login
-      - --daemon-address=rpc-stagenet.kyc.rip:443
+      - --daemon-address=rpc-${MONERO_NETWORK:-stagenet}.kyc.rip:443
       - --daemon-ssl=enabled
       - --daemon-ssl-allow-any-cert
 
@@ -50,6 +50,7 @@ services:
       - "127.0.0.1:38084:38084"
     environment:
       - WALLET_RPC_URL=http://wallet-rpc:38083/json_rpc
+      - MONERO_NETWORK=${MONERO_NETWORK:-stagenet}
       - AGENT_API_KEY=${AGENT_API_KEY:-ripley_secure_key_123}
 
   tunnel:

@@ -18,7 +18,8 @@ def verify_api_key(api_key: str = Depends(api_key_header)):
 
 # RPC Configuration - Internal Docker network address
 RPC_URL = os.environ.get("WALLET_RPC_URL", "http://127.0.0.1:38083/json_rpc")
-DEFAULT_WALLET = "agent_stagenet"
+MONERO_NETWORK = os.environ.get("MONERO_NETWORK", "stagenet").lower()
+DEFAULT_WALLET = f"agent_{MONERO_NETWORK}"
 DEFAULT_PASS = "super_secret_password"
 
 def rpc_call(method, params=None, auto_init=True):
@@ -79,7 +80,7 @@ def get_balance():
     return {
         "balance_xmr": float(res.get("balance", 0)) / 1e12,
         "unlocked_xmr": float(res.get("unlocked_balance", 0)) / 1e12,
-        "network": "stagenet"
+        "network": MONERO_NETWORK
     }
 
 @app.post("/subaddress", dependencies=[Depends(verify_api_key)])
@@ -96,11 +97,20 @@ def create_subaddress(req: SubaddressRequest):
 @app.get("/sync", dependencies=[Depends(verify_api_key)])
 def get_sync_status():
     # Attempt to get the real network height from multiple public sources
-    STAGENET_NODES = [
-        "https://rpc-stagenet.kyc.rip/json_rpc",        # User provided reliable endpoint
-        "https://stagenet.xmr.ditatompel.com/json_rpc", # HTTPS fallback
-        "http://192.99.8.110:38089/json_rpc"           # node.monerodevs.org
-    ]
+    if MONERO_NETWORK == "mainnet":
+        NODES = [
+            "https://nodes.hashvault.pro:443/json_rpc",
+            "https://node.supportxmr.com:443/json_rpc",
+            "https://xmr-node.cakewallet.com:443/json_rpc"
+        ]
+    elif MONERO_NETWORK == "stagenet":
+        NODES = [
+            "https://rpc-stagenet.kyc.rip/json_rpc",
+            "https://stagenet.xmr.ditatompel.com/json_rpc",
+            "http://192.99.8.110:38089/json_rpc"
+        ]
+    else: # testnet or other
+        NODES = []
     
     network_height = 0
     node_payload = {"jsonrpc":"2.0", "id":"0", "method":"get_info"}
@@ -109,7 +119,7 @@ def get_sync_status():
     session.trust_env = False
     
     # Try each node until one responds
-    for node_url in STAGENET_NODES:
+    for node_url in NODES:
         try:
             print(f"Trying node: {node_url}")
             res = session.post(node_url, json=node_payload, timeout=3).json()
@@ -134,7 +144,7 @@ def get_sync_status():
         "network_height": network_height,
         "gap": max(0, network_height - wallet_height),
         "sync_percentage": sync_percent,
-        "network": "stagenet",
+        "network": MONERO_NETWORK,
         "status": "synced" if network_height > 0 and wallet_height >= network_height else "synchronizing"
     }
 
@@ -167,4 +177,4 @@ def transfer(req: TransferRequest):
 if __name__ == "__main__":
     import uvicorn
     # Enable reload for easier development within the docker volume
-    uvicorn.run("agent_api:app", host="0.0.0.0", port=38084, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=38084, reload=True)
