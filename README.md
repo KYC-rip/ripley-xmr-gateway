@@ -9,6 +9,14 @@ Named after the central character who values survival, independence, and raw com
 
 This gateway is the bridge that allows your AI agents to become sovereign financial entities, free from the constraints of centralized payment rails.
 
+### 1. Installation for AI Agents
+If you are using the `gemini` CLI or a compatible agent environment, you can install this skill directly:
+```bash
+gemini skills install https://github.com/KYC-rip/ripley-xmr-gateway.git --path skills/monero-wallet
+```
+
+### 2. Deployment (Gateway)
+
 ## Features
 - **Stateless AI Integration**: Connect any AI model (Gemini, GPT-4, etc.) to Monero via standard HTTP.
 - **Sync Tracking**: Real-time blockchain synchronization monitoring.
