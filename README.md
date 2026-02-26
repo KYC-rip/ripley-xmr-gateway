@@ -59,4 +59,4 @@ Check out `examples/ripley_agent.py` for a full implementation of an AI agent us
 - `examples/`: Reference implementations.
 
 ## License
-MIT (or your preferred license)
+MIT
