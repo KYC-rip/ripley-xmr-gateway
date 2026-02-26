@@ -9,6 +9,17 @@ Named after the central character who values survival, independence, and raw com
 
 This gateway is the bridge that allows your AI agents to become sovereign financial entities, free from the constraints of centralized payment rails.
 
+## Quick Start (One-Liner) 🚀
+
+Run this command to set up and launch your Ripley Gateway in seconds:
+
+```bash
+mkdir ripley && cd ripley && \
+curl -sSL https://raw.githubusercontent.com/KYC-rip/ripley-xmr-gateway/main/docker-compose.yml -o docker-compose.yml && \
+echo "MONERO_NETWORK=stagenet\nAGENT_API_KEY=ripley_$(openssl rand -hex 8)" > .env && \
+docker-compose up -d
+```
+
 ### 1. Installation for AI Agents
 
 **Gemini Skills CLI**:
