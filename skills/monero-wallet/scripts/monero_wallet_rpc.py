@@ -1,73 +1,60 @@
-import sys
+import os
 import json
 import requests
 import argparse
 
-# RPC Configuration for the local Stagenet wallet RPC container
-RPC_URL = "http://127.0.0.1:38083/json_rpc"
+# Gateway Configuration - The script now talks to the secure Ripley Gateway
+GATEWAY_URL = os.environ.get("AGENT_GATEWAY_URL", "http://127.0.0.1:38084")
+API_KEY = os.environ.get("AGENT_API_KEY")
 
-def rpc_call(method, params=None):
-    payload = {
-        "jsonrpc": "2.0",
-        "id": "0",
-        "method": method,
-        "params": params or {}
+def api_call(endpoint, method="GET", data=None):
+    if not API_KEY:
+        return {"error": "AGENT_API_KEY environment variable not set"}
+    
+    headers = {
+        "X-API-KEY": API_KEY,
+        "Content-Type": "application/json"
     }
+    
+    url = f"{GATEWAY_URL.rstrip('/')}/{endpoint.lstrip('/')}"
+    
     try:
         session = requests.Session()
         session.trust_env = False
-        response = session.post(RPC_URL, json=payload, timeout=10)
-        data = response.json()
-        if "error" in data:
-            return {"error": data["error"]["message"]}
-        return data.get("result", {})
+        if method == "GET":
+            response = session.get(url, headers=headers, timeout=10)
+        else:
+            response = session.post(url, headers=headers, json=data, timeout=10)
+            
+        return response.json()
     except Exception as e:
         return {"error": str(e)}
 
 def get_balance():
-    res = rpc_call("get_balance", {"account_index": 0})
-    if "error" in res:
-        print(json.dumps(res))
-        return
-    balance = float(res.get("balance", 0)) / 1e12
-    unlocked = float(res.get("unlocked_balance", 0)) / 1e12
-    print(json.dumps({
-        "balance_xmr": balance,
-        "unlocked_xmr": unlocked,
-        "network": "stagenet"
-    }))
+    res = api_call("balance")
+    print(json.dumps(res))
+
+def get_sync():
+    res = api_call("sync")
+    print(json.dumps(res))
 
 def create_address(label):
-    res = rpc_call("create_address", {"account_index": 0, "label": label})
-    if "error" in res:
-        print(json.dumps(res))
-        return
-    print(json.dumps({
-        "address": res.get("address"),
-        "label": label
-    }))
+    res = api_call("subaddress", method="POST", data={"label": label})
+    print(json.dumps(res))
 
 def transfer(address, amount_xmr):
-    amount_atomic = int(float(amount_xmr) * 1e12)
-    res = rpc_call("transfer", {
-        "destinations": [{"address": address, "amount": amount_atomic}],
-        "account_index": 0,
-        "priority": 1
+    res = api_call("transfer", method="POST", data={
+        "address": address, 
+        "amount_xmr": float(amount_xmr)
     })
-    if "error" in res:
-        print(json.dumps(res))
-        return
-    print(json.dumps({
-        "status": "Transferred",
-        "tx_hash": res.get("tx_hash"),
-        "fee_xmr": float(res.get("fee", 0)) / 1e12
-    }))
+    print(json.dumps(res))
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Monero Wallet RPC CLI for AI Agents")
+    parser = argparse.ArgumentParser(description="Ripley Monero Gateway Client for AI Agents")
     subparsers = parser.add_subparsers(dest="command")
 
     subparsers.add_parser("get-balance")
+    subparsers.add_parser("check-sync")
     
     addr_parser = subparsers.add_parser("create-address")
     addr_parser.add_argument("label", help="Label for the new address")
@@ -78,11 +65,15 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    if not args.command:
+        parser.print_help()
+        sys.exit(1)
+
     if args.command == "get-balance":
         get_balance()
+    elif args.command == "check-sync":
+        get_sync()
     elif args.command == "create-address":
         create_address(args.label)
     elif args.command == "transfer":
         transfer(args.address, args.amount)
-    else:
-        parser.print_help()

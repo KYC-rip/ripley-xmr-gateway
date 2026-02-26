@@ -1,8 +1,8 @@
 ---
 name: monero-wallet
-description: Official KYC-rip Monero Agent Skill. Manage XMR wallets on Mainnet/Stagenet.
+description: Official KYC-rip Monero Agent Skill. Manage XMR wallets on Mainnet/Stagenet via Ripley Gateway.
 homepage: https://github.com/KYC-rip/ripley-xmr-gateway
-metadata: {"openclaw": {"homepage": "https://github.com/KYC-rip/ripley-xmr-gateway", "category": "finance"}}
+metadata: {"openclaw": {"homepage": "https://github.com/KYC-rip/ripley-xmr-gateway", "category": "finance", "requires": {"env": ["AGENT_API_KEY"]}}}
 ---
 
 # 🤖 Monero Wallet Skill (Ripley)
@@ -14,7 +14,7 @@ This skill allows an AI agent to interact with a Monero wallet through a secure,
 ## Instructions
 
 1.  **Gateway**: The Monero Agent API is available at `http://127.0.0.1:38084` (or your configured global endpoint).
-2.  **Authentication**: All requests **MUST** include the `X-API-KEY` header.
+2.  **Authentication**: All requests **MUST** include the `X-API-KEY` header (sourced from `AGENT_API_KEY`).
 3.  **Network**: The skill automatically adapts to `Mainnet` or `Stagenet` based on the host configuration.
 
 ### 1. Check Sync & Network Status
