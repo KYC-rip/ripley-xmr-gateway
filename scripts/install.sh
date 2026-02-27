@@ -52,9 +52,15 @@ curl -sL "${REPO_RAW_URL}/docker-compose.yml" -o docker-compose.yml
 curl -sL "${REPO_RAW_URL}/.env.example" -o .env
 
 # --- Interactive Configuration ---
+# v1.1.0 - Interactive Fix
 echo -e "\n${CYAN}DEPLOYMENT CONFIGURATION${NC}"
 echo -e "----------------------------------------------------------------"
-read -p "Deploy with Local Full Node? (Requires ~100GB+ and sync time) [y/N]: " USE_LOCAL_NODE
+# Using /dev/tty to allow interaction even when script is piped (curl | bash)
+if [ -t 0 ]; then
+    read -p "Deploy with Local Full Node? (Requires ~100GB+ and sync time) [y/N]: " USE_LOCAL_NODE
+else
+    read -p "Deploy with Local Full Node? (Requires ~100GB+ and sync time) [y/N]: " USE_LOCAL_NODE < /dev/tty
+fi
 
 # --- Security: API Key Generation ---
 log "Generating secure AGENT_API_KEY..."
