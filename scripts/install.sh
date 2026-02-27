@@ -101,21 +101,41 @@ sed -i.bak "s/MONERO_NETWORK=.*/MONERO_NETWORK=${SELECTED_NETWORK}/" .env
 
 if [[ "$USE_LOCAL_NODE" =~ ^[Yy]$ ]]; then
     log "Configuring for LOCAL FULL NODE on ${SELECTED_NETWORK}..."
-    sed -i.bak "s/MONERO_DAEMON_ADDRESS=.*/MONERO_DAEMON_ADDRESS=monero-node:38089/" .env
-    sed -i.bak "s/MONERO_DAEMON_SSL=.*/MONERO_DAEMON_SSL=disabled/" .env
+    DAEMON_ADDR="monero-node:38089"
+    DAEMON_SSL="disabled"
     # Add profile if not present
     if ! grep -q "COMPOSE_PROFILES=full-node" .env; then
         echo "COMPOSE_PROFILES=full-node" >> .env
     fi
 else
-    log "Configuring for REMOTE NODE (${SELECTED_NETWORK}) (Lite mode)..."
-    # Construct remote address (testnet uses a different port/hostname convention often, but kyc.rip follows rpc-<net>)
-    REMOTE_ADDR="rpc-${SELECTED_NETWORK}.kyc.rip:443"
-    sed -i.bak "s/MONERO_DAEMON_ADDRESS=.*/MONERO_DAEMON_ADDRESS=${REMOTE_ADDR}/" .env
-    sed -i.bak "s/MONERO_DAEMON_SSL=.*/MONERO_DAEMON_SSL=enabled/" .env
+    # Lite Mode Path - Choose between kyc.rip and Custom
+    echo -e "Lite Mode Connectivity:"
+    echo -e "  1) kyc.rip Default (rpc-${SELECTED_NETWORK}.kyc.rip)"
+    echo -e "  2) Custom Remote Node"
+    prompt_user "Enter choice (1-2)" "LITE_CHOICE" "1"
+
+    if [ "$LITE_CHOICE" == "2" ]; then
+        prompt_user "Enter Custom Daemon URL (e.g. node.example.com:18081)" "CUSTOM_ADDR" ""
+        prompt_user "Use SSL for Custom Node? [Y/n]" "CUSTOM_SSL_CHOICE" "y"
+        
+        DAEMON_ADDR="$CUSTOM_ADDR"
+        if [[ "$CUSTOM_SSL_CHOICE" =~ ^[Nn]$ ]]; then
+            DAEMON_SSL="disabled"
+        else
+            DAEMON_SSL="enabled"
+        fi
+    else
+        DAEMON_ADDR="rpc-${SELECTED_NETWORK}.kyc.rip:443"
+        DAEMON_SSL="enabled"
+    fi
+    
     # Remove profile line if user switches back to lite
     sed -i.bak "/COMPOSE_PROFILES=full-node/d" .env
 fi
+
+# Apply the resolved daemon settings
+sed -i.bak "s/MONERO_DAEMON_ADDRESS=.*/MONERO_DAEMON_ADDRESS=${DAEMON_ADDR}/" .env
+sed -i.bak "s/MONERO_DAEMON_SSL=.*/MONERO_DAEMON_SSL=${DAEMON_SSL}/" .env
 
 rm -f .env.bak
 
