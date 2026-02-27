@@ -51,13 +51,31 @@ log "Fetching configuration files..."
 curl -sL "${REPO_RAW_URL}/docker-compose.yml" -o docker-compose.yml
 curl -sL "${REPO_RAW_URL}/.env.example" -o .env
 
+# --- Interactive Configuration ---
+echo -e "\n${CYAN}DEPLOYMENT CONFIGURATION${NC}"
+echo -e "----------------------------------------------------------------"
+read -p "Deploy with Local Full Node? (Requires ~100GB+ and sync time) [y/N]: " USE_LOCAL_NODE
+
 # --- Security: API Key Generation ---
 log "Generating secure AGENT_API_KEY..."
 GEN_KEY=$(openssl rand -hex 32)
 
-# Update .env with the generated key and network
+# Update .env
 sed -i.bak "s/AGENT_API_KEY=.*/AGENT_API_KEY=${GEN_KEY}/" .env
 sed -i.bak "s/MONERO_NETWORK=.*/MONERO_NETWORK=${DEFAULT_NETWORK}/" .env
+
+if [[ "$USE_LOCAL_NODE" =~ ^[Yy]$ ]]; then
+    log "Configuring for LOCAL FULL NODE (Full sovereignty)..."
+    sed -i.bak "s/MONERO_DAEMON_ADDRESS=.*/MONERO_DAEMON_ADDRESS=monero-node:38089/" .env
+    sed -i.bak "s/MONERO_DAEMON_SSL=.*/MONERO_DAEMON_SSL=disabled/" .env
+    echo "COMPOSE_PROFILES=full-node" >> .env
+else
+    log "Configuring for REMOTE NODE (Lite/Fast mode)..."
+    # Default in .env.example is already remote, but let's be explicit
+    sed -i.bak "s/MONERO_DAEMON_ADDRESS=.*/MONERO_DAEMON_ADDRESS=rpc-${DEFAULT_NETWORK}.kyc.rip:443/" .env
+    sed -i.bak "s/MONERO_DAEMON_SSL=.*/MONERO_DAEMON_SSL=enabled/" .env
+fi
+
 rm -f .env.bak
 
 # --- Permissions Fix ---
@@ -69,7 +87,21 @@ log "Starting Ripley Gateway services via Docker..."
 ${DOCKER_COMPOSE_CMD} up -d
 
 # --- Final Report ---
-echo -e "\n${GREEN}================================================================${NC}"
+echo -e "\n${GREEN}"
+echo "      .        .       "
+echo "     / \      / \      "
+echo "    /   \    /   \     "
+echo "   /     \  /     \    "
+echo "  /       \/       \   "
+echo " /         M        \  "
+echo " \        / \       /  "
+echo "  \      /   \     /   "
+echo "   \    /     \   /    "
+echo "    \  /       \ /     "
+echo "     \/         \/     "
+echo -e "${NC}"
+
+echo -e "${GREEN}================================================================${NC}"
 echo -e "${GREEN}      RIPLEY GATEWAY DEPLOYMENT COMPLETE!                     ${NC}"
 echo -e "${GREEN}================================================================${NC}"
 echo -e "\n${YELLOW}CRITICAL: YOUR AGENT API KEY${NC}"
@@ -77,6 +109,12 @@ echo -e "----------------------------------------------------------------"
 echo -e "${GREEN}${GEN_KEY}${NC}"
 echo -e "----------------------------------------------------------------"
 echo -e "Save this key! You will need it to configure your AI Agent skills."
+
+echo -e "\n${CYAN}NEED XMR?${NC}"
+echo -e "----------------------------------------------------------------"
+echo -e "Exchange BTC/ETH/USDT for clean Monero via the Non-Custodial Swap Protocol:"
+echo -e "${YELLOW}https://kyc.rip/swap${NC}"
+
 echo -e "\n${CYAN}Quick Links:${NC}"
 echo -e "- Gateway URL:  http://127.0.0.1:38084"
 echo -e "- Logs:         cd ${INSTALL_DIR} && ${DOCKER_COMPOSE_CMD} logs -f"
