@@ -52,15 +52,44 @@ curl -sL "${REPO_RAW_URL}/docker-compose.yml" -o docker-compose.yml
 curl -sL "${REPO_RAW_URL}/.env.example" -o .env
 
 # --- Interactive Configuration ---
-# v1.1.0 - Interactive Fix
+# v1.2.0 - Network + Node Selection
 echo -e "\n${CYAN}DEPLOYMENT CONFIGURATION${NC}"
 echo -e "----------------------------------------------------------------"
-# Using /dev/tty to allow interaction even when script is piped (curl | bash)
-if [ -t 0 ]; then
-    read -p "Deploy with Local Full Node? (Requires ~100GB+ and sync time) [y/N]: " USE_LOCAL_NODE
-else
-    read -p "Deploy with Local Full Node? (Requires ~100GB+ and sync time) [y/N]: " USE_LOCAL_NODE < /dev/tty
-fi
+
+# Interaction helper for piped bash
+function prompt_user() {
+    local prompt_msg="$1"
+    local variable_name="$2"
+    local default_value="$3"
+    
+    if [ -t 0 ]; then
+        read -p "$prompt_msg [$default_value]: " input
+    else
+        read -p "$prompt_msg [$default_value]: " input < /dev/tty
+    fi
+    
+    if [ -z "$input" ]; then
+        eval "$variable_name=\"$default_value\""
+    else
+        eval "$variable_name=\"$input\""
+    fi
+}
+
+# 1. Select Network
+echo -e "Select Monero Network:"
+echo -e "  1) mainnet"
+echo -e "  2) stagenet (default)"
+echo -e "  3) testnet"
+prompt_user "Enter choice (1-3)" "NETWORK_CHOICE" "2"
+
+case $NETWORK_CHOICE in
+    1) SELECTED_NETWORK="mainnet" ;;
+    3) SELECTED_NETWORK="testnet" ;;
+    *) SELECTED_NETWORK="stagenet" ;;
+esac
+
+# 2. Select Node Type
+prompt_user "Deploy with Local Full Node? (Requires ~100GB+ and sync time) [y/N]" "USE_LOCAL_NODE" "n"
 
 # --- Security: API Key Generation ---
 log "Generating secure AGENT_API_KEY..."
@@ -68,18 +97,24 @@ GEN_KEY=$(openssl rand -hex 32)
 
 # Update .env
 sed -i.bak "s/AGENT_API_KEY=.*/AGENT_API_KEY=${GEN_KEY}/" .env
-sed -i.bak "s/MONERO_NETWORK=.*/MONERO_NETWORK=${DEFAULT_NETWORK}/" .env
+sed -i.bak "s/MONERO_NETWORK=.*/MONERO_NETWORK=${SELECTED_NETWORK}/" .env
 
 if [[ "$USE_LOCAL_NODE" =~ ^[Yy]$ ]]; then
-    log "Configuring for LOCAL FULL NODE (Full sovereignty)..."
+    log "Configuring for LOCAL FULL NODE on ${SELECTED_NETWORK}..."
     sed -i.bak "s/MONERO_DAEMON_ADDRESS=.*/MONERO_DAEMON_ADDRESS=monero-node:38089/" .env
     sed -i.bak "s/MONERO_DAEMON_SSL=.*/MONERO_DAEMON_SSL=disabled/" .env
-    echo "COMPOSE_PROFILES=full-node" >> .env
+    # Add profile if not present
+    if ! grep -q "COMPOSE_PROFILES=full-node" .env; then
+        echo "COMPOSE_PROFILES=full-node" >> .env
+    fi
 else
-    log "Configuring for REMOTE NODE (Lite/Fast mode)..."
-    # Default in .env.example is already remote, but let's be explicit
-    sed -i.bak "s/MONERO_DAEMON_ADDRESS=.*/MONERO_DAEMON_ADDRESS=rpc-${DEFAULT_NETWORK}.kyc.rip:443/" .env
+    log "Configuring for REMOTE NODE (${SELECTED_NETWORK}) (Lite mode)..."
+    # Construct remote address (testnet uses a different port/hostname convention often, but kyc.rip follows rpc-<net>)
+    REMOTE_ADDR="rpc-${SELECTED_NETWORK}.kyc.rip:443"
+    sed -i.bak "s/MONERO_DAEMON_ADDRESS=.*/MONERO_DAEMON_ADDRESS=${REMOTE_ADDR}/" .env
     sed -i.bak "s/MONERO_DAEMON_SSL=.*/MONERO_DAEMON_SSL=enabled/" .env
+    # Remove profile line if user switches back to lite
+    sed -i.bak "/COMPOSE_PROFILES=full-node/d" .env
 fi
 
 rm -f .env.bak
