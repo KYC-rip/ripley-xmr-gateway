@@ -6,10 +6,16 @@ from google.genai import types
 
 # ======= 1. CONFIGURATION =======
 API_KEY = os.environ.get("GEMINI_API_KEY") 
+GATEWAY_API_KEY = os.environ.get("GATEWAY_API_KEY")
 
 if not API_KEY:
     print("WARNING: GEMINI_API_KEY environment variable not set.")
     print("Please run: export GEMINI_API_KEY='your_key_here'")
+    exit(1)
+
+if not GATEWAY_API_KEY:
+    print("WARNING: GATEWAY_API_KEY environment variable not set.")
+    print("Please run: export GATEWAY_API_KEY='your_key_here'")
     exit(1)
 
 # Initialize the native client
@@ -17,14 +23,13 @@ client = genai.Client(api_key=API_KEY)
 
 # Gateway Configuration (Our HTTP Microservice)
 GATEWAY_URL = "http://127.0.0.1:38084"
-GATEWAY_API_KEY = "ripley_secure_key_123" # Must match Agent API's key
 
 # Fetch current network from gateway
 try:
-    _status = requests.get(f"{GATEWAY_URL}/sync", headers={"X-API-KEY": GATEWAY_API_KEY}, timeout=5).json()
-    MONERO_NETWORK = _status.get("network", "stagenet")
+    _status = requests.get(f"{GATEWAY_URL}/network", headers={"X-API-KEY": GATEWAY_API_KEY}, timeout=5).json()
+    MONERO_NETWORK = _status.get("network", "mainnet")
 except:
-    MONERO_NETWORK = "stagenet" # Fallback
+    MONERO_NETWORK = "mainnet" # Fallback to mainnet for Ripley
 
 # ======= 2. AI TOOLS / SKILLS (VIA GATEWAY) =======
 
@@ -76,6 +81,12 @@ def trigger_rescan():
     res = api_request("/rescan", "POST")
     return json.dumps(res)
 
+def get_network_info():
+    """Tool: Check which Monero network (mainnet/stagenet) the gateway is on"""
+    print("[SYSTEM] ⚡ AI checking network orientation...")
+    res = api_request("/network")
+    return json.dumps(res)
+
 # ======= 3. AGENT EXECUTION LOOP =======
 
 def run_agent(user_prompt: str):
@@ -97,7 +108,8 @@ def run_agent(user_prompt: str):
             check_sync_status, 
             generate_subaddress, 
             pay_with_monero,
-            trigger_rescan
+            trigger_rescan,
+            get_network_info
         ]
         
         chat = client.chats.create(

@@ -47,7 +47,12 @@ python3 scripts/monero_wallet_rpc.py check-sync
 python3 scripts/monero_wallet_rpc.py get-balance
 ```
 
-### 3. Generate Subaddress
+### 3. Check Network Orientation
+```bash
+python3 scripts/monero_wallet_rpc.py get-network
+```
+
+### 4. Generate Subaddress
 Create a unique, one-time-use address for a specific invoice or service.
 ```bash
 python3 scripts/monero_wallet_rpc.py create-address "vps_hosting"
@@ -64,6 +69,7 @@ If the Python environment is unavailable, use `curl` to talk directly to the Gat
 
 - **Check Sync**: `GET /sync`
 - **Check Balance**: `GET /balance`
+- **Check Network**: `GET /network`
 - **Generate Address**: `POST /subaddress {"label": "..."}`
 - **Transfer**: `POST /transfer {"address": "...", "amount_xmr": 0.0}`
 

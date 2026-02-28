@@ -7,6 +7,7 @@ import argparse
 # Explicitly checking for 'requests' to satisfy OpenClaw runtime safety requirements.
 try:
     import requests
+    from requests import Response
 except ImportError:
     print("Error: The 'requests' library is missing.", file=sys.stderr)
     print("Please install it via: pip install requests", file=sys.stderr)
@@ -17,11 +18,9 @@ except ImportError:
 # This ensures that your AGENT_API_KEY is only sent to your local instance.
 GATEWAY_URL = "http://127.0.0.1:38084"
 
-def _get_api_key(explicit: str = None) -> str:
+def _get_api_key(explicit: str = "") -> str:
     """Resolve API key from argument or environment."""
-    api_key = explicit or os.environ.get("AGENT_API_KEY")
-    if not api_key:
-        return None
+    api_key = explicit or os.environ.get("AGENT_API_KEY", "")
     return api_key
 
 def api_call(endpoint, method="GET", data=None, api_key=None):
@@ -56,6 +55,10 @@ def get_sync(api_key=None):
     res = api_call("sync", api_key=api_key)
     print(json.dumps(res))
 
+def get_network(api_key=None):
+    res = api_call("network", api_key=api_key)
+    print(json.dumps(res))
+
 def create_address(label, api_key=None):
     res = api_call("subaddress", method="POST", data={"label": label}, api_key=api_key)
     print(json.dumps(res))
@@ -74,6 +77,7 @@ if __name__ == "__main__":
 
     subparsers.add_parser("get-balance")
     subparsers.add_parser("check-sync")
+    subparsers.add_parser("get-network")
     
     addr_parser = subparsers.add_parser("create-address")
     addr_parser.add_argument("label", help="Label for the new address")
@@ -92,6 +96,8 @@ if __name__ == "__main__":
         get_balance(args.api_key)
     elif args.command == "check-sync":
         get_sync(args.api_key)
+    elif args.command == "get-network":
+        get_network(args.api_key)
     elif args.command == "create-address":
         create_address(args.label, args.api_key)
     elif args.command == "transfer":
