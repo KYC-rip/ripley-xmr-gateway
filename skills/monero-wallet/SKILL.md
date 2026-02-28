@@ -11,15 +11,13 @@ Part of the [ripley-xmr-gateway](https://github.com/KYC-rip/ripley-xmr-gateway) 
 
 This skill allows an AI agent to interact with a Monero wallet through a secure **Local** Gateway. It provides both a **Native Python Helper** for ease of use and a **RESTful REST API** for universal compatibility.
 
-## Pre-conditions & Gateway Setup
-The gateway must be running locally via Docker before the skill can be used.
-
 ### 1. Install & Launch Gateway
-Run the official one-liner to pull images and start the stack:
-```bash
-curl -sL https://raw.githubusercontent.com/KYC-rip/ripley-xmr-gateway/main/scripts/install.sh | bash
-```
-*For detailed options and manual setup, visit [kyc.rip/ripley](https://kyc.rip/ripley).*
+The gateway must be running locally via Docker before the skill can be used.
+Install and start the Ripley Gateway stack via the official instructions:
+
+- **Official Setup**: [kyc.rip/ripley](https://kyc.rip/ripley)
+
+*This will pull the necessary Docker images and start the Monero node, wallet RPC, and gateway.*
 
 ### 2. Verify Status
 Ensure `ripley-xmr-gateway`, `monero-wallet-rpc`, and `monero-node` are active:
