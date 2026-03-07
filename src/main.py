@@ -270,8 +270,15 @@ def pay_402_invoice(req: Pay402Request):
     if "error" in tx_res:
         raise HTTPException(status_code=500, detail=tx_res["error"])
         
+    print(f"DEBUG: transfer response: {tx_res}")    
     record_spend(req.amount_xmr)
+    
     tx_hash = tx_res.get("tx_hash")
+    if not tx_hash and "tx_hash_list" in tx_res and len(tx_res["tx_hash_list"]) > 0:
+        tx_hash = tx_res["tx_hash_list"][0]
+        
+    if not tx_hash:
+        raise HTTPException(status_code=500, detail=f"No tx_hash in transfer response! Response: {tx_res}")
 
     # 2. Generate Proof
     proof_res = rpc_call("get_tx_proof", {
@@ -279,6 +286,8 @@ def pay_402_invoice(req: Pay402Request):
         "address": req.address,
         "message": req.message
     })
+    
+    print(f"DEBUG: proof response: {proof_res}")
     
     if "error" in proof_res:
         raise HTTPException(status_code=500, detail=f"Failed to generate proof: {proof_res['error']}")
