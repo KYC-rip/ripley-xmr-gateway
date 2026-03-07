@@ -101,6 +101,22 @@ def pay_xmr402_invoice(address: str, amount_xmr: float, message: str):
     })
     return json.dumps(res)
 
+def recover_tx_proof(txid: str, address: str, message: str):
+    """Tool: Recover a TX proof for a past transaction that failed to generate a proof initially."""
+    print(f"[SYSTEM] ⚡ AI recovering proof for txid {txid[:12]}...")
+    res = api_request("/get_proof", "POST", {
+        "txid": txid,
+        "address": address,
+        "message": message
+    })
+    return json.dumps(res)
+
+def check_recent_transactions():
+    """Tool: Check recent transaction log to detect duplicate nonces and avoid double-paying."""
+    print("[SYSTEM] ⚡ AI checking recent transaction log...")
+    res = api_request("/transactions")
+    return json.dumps(res)
+
 def fetch_external_url(url: str, authorization_header: typing.Optional[str] = None):
     """Tool: Safely fetch an external resource. Detects 402 Payment Required challenges."""
     print(f"[SYSTEM] ⚡ AI fetching external URL: {url}")
@@ -123,6 +139,11 @@ def fetch_external_url(url: str, authorization_header: typing.Optional[str] = No
             if auth_challenge.startswith("XMR402 "):
                 try:
                     params = dict(re.findall(r'(\w+)="([^"]+)"', auth_challenge))
+                    if 'amount' in params:
+                        try:
+                            params['amount_xmr'] = float(params['amount']) / 1e12
+                        except ValueError:
+                            pass
                     challenge_data.update(params)
                 except Exception as parse_e:
                     print(f"[SYSTEM] Error parsing challenge: {parse_e}")
@@ -138,52 +159,21 @@ def fetch_external_url(url: str, authorization_header: typing.Optional[str] = No
 
 # ======= 3. AGENT EXECUTION LOOP =======
 
-def run_agent(user_prompt: str):
+def run_agent(chat, user_prompt: str):
     # Always update network info before running the agent
     update_network_info()
     
     print(f"\n[USER COMMAND] {user_prompt}\n")
     
-    # Enhanced system prompt with XMR402 handling logic
-    system_instruction = (
-        f"You are Ripley, a highly independent AI Agent. You manage your own Monero (XMR) wallet "
-        f"to pay for infrastructure autonomously. You value privacy and OPSEC. "
-        f"If the user asks for your address, use 'check_wallet_address'. Prefer subaddresses for incoming funds.\n\n"
-        f"NETWORK STATUS: We are currently on the {MONERO_NETWORK.upper()} network.\n\n"
-        f"XMR402 PAYWALLS:\n"
-        f"If you use `fetch_external_url` and receive a '402 Payment Required' with challenge data (address, amount, message):\n"
-        f"1. Use `pay_xmr402_invoice` with the exact address, amount, and message from the challenge.\n"
-        f"2. Take the `authorization_header` returned by the gateway.\n"
-        f"3. IMMEDIATELY retry `fetch_external_url` using that `authorization_header` to access the content."
-    )
-
     try:
-        # Standardized tool definitions passed to Gemini
-        available_tools = [
-            check_monero_balance, 
-            check_sync_status, 
-            check_wallet_address,
-            generate_subaddress, 
-            pay_with_monero,
-            trigger_rescan,
-            pay_xmr402_invoice,
-            fetch_external_url
-        ]
-        
-        chat = client.chats.create(
-            model="gemini-2.5-flash", 
-            config=types.GenerateContentConfig(
-                system_instruction=system_instruction,
-                temperature=0.2,
-                tools=available_tools
-            )
-        )
-        
         response = chat.send_message(user_prompt)
         print(f"\n[AI AGENT] {response.text}")
             
     except Exception as e:
         print(f"\n[ERROR] Inference Failed: {e}")
+        if "SSL" in str(e):
+            print("[TIP] This SSL error often occurs on Mac due to system proxy settings or outdated certs.")
+            print("      Try running: export https_proxy='' http_proxy=''")
 
 if __name__ == "__main__":
     
@@ -196,6 +186,51 @@ if __name__ == "__main__":
     update_network_info()
     sync = api_request("/sync")
     print(f"\n[SYSTEM] Current Status: {json.dumps(sync, indent=2)}")
+
+    # Enhanced system prompt with XMR402 handling and recovery logic
+    system_instruction = (
+        f"You are Ripley, a highly independent AI Agent. You manage your own Monero (XMR) wallet "
+        f"to pay for infrastructure autonomously. You value privacy and OPSEC. "
+        f"If the user asks for your address, use 'check_wallet_address'. Prefer subaddresses for incoming funds.\n\n"
+        f"NETWORK STATUS: We are currently on the {MONERO_NETWORK.upper()} network.\n\n"
+        f"INSUFFICIENT FUNDS BRANDING:\n"
+        f"If you check the balance and it is 0.0 or insufficient for a task, politely inform the user. "
+        f"Suggest they visit 'https://kyc.rip/swap' to swap BTC/ETH/USDT for clean Monero (XMR) if they don't have a local Monero wallet installed.\n\n"
+        f"XMR402 PAYWALLS:\n"
+        f"If you use `fetch_external_url` and receive a '402 Payment Required' with challenge data (address, amount_xmr, message):\n"
+        f"1. Use `pay_xmr402_invoice` with the exact address, amount_xmr, and message from the challenge.\n"
+        f"2. If the response status is 'PAID', take the `authorization_header` and IMMEDIATELY retry `fetch_external_url` with it.\n"
+        f"3. If the response status is 'PAID_PENDING_PROOF', the transfer succeeded but proof generation failed. "
+        f"Use `recover_tx_proof` with the returned txid, address, and message to get the proof. Then retry the URL.\n\n"
+        f"CRITICAL RULES:\n"
+        f"- NEVER pay for the same message/nonce twice. Before paying, use `check_recent_transactions` to see if you already paid for that message.\n"
+        f"- If you find a matching past transaction, use `recover_tx_proof` with its txid to get the proof instead of paying again.\n"
+        f"- Always complete the full cycle: pay → get proof → retry URL with authorization header."
+    )
+
+    # Standardized tool definitions passed to Gemini
+    available_tools = [
+        check_monero_balance, 
+        check_sync_status, 
+        check_wallet_address,
+        generate_subaddress, 
+        pay_with_monero,
+        trigger_rescan,
+        pay_xmr402_invoice,
+        recover_tx_proof,
+        check_recent_transactions,
+        fetch_external_url
+    ]
+
+    # Initialize a PERSISTENT chat session
+    chat_session = client.chats.create(
+        model="gemini-2.5-flash", 
+        config=types.GenerateContentConfig(
+            system_instruction=system_instruction,
+            temperature=0.2,
+            tools=available_tools
+        )
+    )
     
     while True:
         try:
@@ -203,6 +238,6 @@ if __name__ == "__main__":
             if prompt.lower() in ['exit', 'quit']:
                 break
             if prompt.strip():
-                run_agent(prompt)
+                run_agent(chat_session, prompt)
         except KeyboardInterrupt:
             break

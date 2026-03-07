@@ -29,9 +29,30 @@ MAX_XMR_PER_REQUEST = float(os.environ.get("MAX_XMR_PER_REQUEST", "0.1"))
 MAX_XMR_PER_DAY = float(os.environ.get("MAX_XMR_PER_DAY", "0.5"))
 DATA_DIR = os.environ.get("DATA_DIR", "/app/data")
 SPEND_TRACKER_FILE = os.path.join(DATA_DIR, "spend_log.json")
+TX_LOG_FILE = os.path.join(DATA_DIR, "tx_log.json")
 
 # Ensure data dir exists
 os.makedirs(DATA_DIR, exist_ok=True)
+
+def load_tx_log():
+    if os.path.exists(TX_LOG_FILE):
+        try:
+            with open(TX_LOG_FILE, "r") as f:
+                return json.load(f)
+        except:
+            pass
+    return []
+
+def save_tx_entry(entry: dict):
+    log = load_tx_log()
+    log.append(entry)
+    # Keep last 100 entries
+    log = log[-100:]
+    try:
+        with open(TX_LOG_FILE, "w") as f:
+            json.dump(log, f, indent=2)
+    except Exception as e:
+        print(f"Error saving tx log: {e}")
 
 def check_spending_limits(amount_xmr: float):
     if amount_xmr > MAX_XMR_PER_REQUEST:
@@ -269,8 +290,7 @@ def pay_402_invoice(req: Pay402Request):
     
     if "error" in tx_res:
         raise HTTPException(status_code=500, detail=tx_res["error"])
-        
-    print(f"DEBUG: transfer response: {tx_res}")    
+    
     record_spend(req.amount_xmr)
     
     tx_hash = tx_res.get("tx_hash")
@@ -278,7 +298,17 @@ def pay_402_invoice(req: Pay402Request):
         tx_hash = tx_res["tx_hash_list"][0]
         
     if not tx_hash:
-        raise HTTPException(status_code=500, detail=f"No tx_hash in transfer response! Response: {tx_res}")
+        raise HTTPException(status_code=500, detail=f"No tx_hash in transfer response")
+
+    # Immediately log the transaction BEFORE attempting proof (crash-safe)
+    save_tx_entry({
+        "txid": tx_hash,
+        "address": req.address,
+        "message": req.message,
+        "amount_xmr": req.amount_xmr,
+        "timestamp": time.time(),
+        "proof_recovered": False
+    })
 
     # 2. Generate Proof (retry — remote daemon needs time to receive the tx)
     proof_res = None
@@ -296,9 +326,14 @@ def pay_402_invoice(req: Pay402Request):
         print(f"[XMR402] Proof attempt {attempt + 1}/{max_retries} failed: {proof_res.get('error')}. Retrying in 3s...")
         time.sleep(3)
     
+    # If proof failed after all retries, return PARTIAL success with txid for later recovery
     if not proof_res or "error" in proof_res:
         err_msg = proof_res.get('error', 'unknown') if proof_res else 'unknown'
-        raise HTTPException(status_code=500, detail=f"Failed to generate proof after {max_retries} attempts: {err_msg}")
+        return {
+            "status": "PAID_PENDING_PROOF",
+            "txid": tx_hash,
+            "error": f"Transfer succeeded but proof generation failed: {err_msg}. Use /get_proof to recover."
+        }
     
     signature = proof_res.get("signature")
     auth_header = f'XMR402 txid="{tx_hash}", proof="{signature}"'
@@ -309,6 +344,38 @@ def pay_402_invoice(req: Pay402Request):
         "txid": tx_hash,
         "proof": signature
     }
+
+class GetProofRequest(BaseModel):
+    txid: str
+    address: str
+    message: str
+
+@app.post("/get_proof", dependencies=[Depends(verify_api_key)])
+def get_proof(req: GetProofRequest):
+    """Recover a TX proof for a past transaction (e.g. after a timeout)"""
+    proof_res = rpc_call("get_tx_proof", {
+        "txid": req.txid,
+        "address": req.address,
+        "message": req.message
+    })
+    
+    if "error" in proof_res:
+        raise HTTPException(status_code=500, detail=proof_res["error"])
+    
+    signature = proof_res.get("signature")
+    auth_header = f'XMR402 txid="{req.txid}", proof="{signature}"'
+    
+    return {
+        "status": "PROOF_RECOVERED",
+        "authorization_header": auth_header,
+        "txid": req.txid,
+        "proof": signature
+    }
+
+@app.get("/transactions", dependencies=[Depends(verify_api_key)])
+def get_transactions():
+    """Return recent transaction log for duplicate detection"""
+    return {"transactions": load_tx_log()}
 
 if __name__ == "__main__":
     import uvicorn
