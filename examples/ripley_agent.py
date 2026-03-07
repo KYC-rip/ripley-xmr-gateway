@@ -1,6 +1,8 @@
 import json
 import requests
+import typing
 import os
+import re
 from google import genai
 from google.genai import types
 
@@ -17,18 +19,25 @@ client = genai.Client(api_key=API_KEY)
 
 # Gateway Configuration (Our HTTP Microservice)
 GATEWAY_URL = "http://127.0.0.1:38084"
-GATEWAY_API_KEY = "ripley_secure_key_123" # Must match Agent API's key
+GATEWAY_API_KEY = os.environ.get("GATEWAY_API_KEY", "ripley_secure_key_123")
 
-# Fetch current network from gateway
-try:
-    _status = requests.get(f"{GATEWAY_URL}/sync", headers={"X-API-KEY": GATEWAY_API_KEY}, timeout=5).json()
-    MONERO_NETWORK = _status.get("network", "stagenet")
-except:
-    MONERO_NETWORK = "stagenet" # Fallback
+# Global variables to track network state
+MONERO_NETWORK = "stagenet" # Initial fallback
+
+def update_network_info():
+    """Update global network info from the gateway"""
+    global MONERO_NETWORK
+    try:
+        session = requests.Session()
+        session.trust_env = False
+        res = session.get(f"{GATEWAY_URL}/sync", headers={"X-API-KEY": GATEWAY_API_KEY}, timeout=5).json()
+        MONERO_NETWORK = res.get("network", "stagenet")
+    except Exception as e:
+        print(f"[SYSTEM] ⚠️ Could not fetch network info: {e}")
 
 # ======= 2. AI TOOLS / SKILLS (VIA GATEWAY) =======
 
-def api_request(endpoint: str, method: str = "GET", data: dict = None):
+def api_request(endpoint: str, method: str = "GET", data: typing.Optional[dict] = None):
     """Unified wrapper to talk to the Agent API Gateway"""
     url = f"{GATEWAY_URL}{endpoint}"
     headers = {"X-API-KEY": GATEWAY_API_KEY}
@@ -58,6 +67,12 @@ def check_sync_status():
     res = api_request("/sync")
     return json.dumps(res)
 
+def check_wallet_address():
+    """Tool: Get the primary Monero address for this wallet to receive funds."""
+    print("[SYSTEM] ⚡ AI triggered wallet address query...")
+    res = api_request("/address")
+    return json.dumps(res)
+
 def generate_subaddress(label: str):
     """Tool: Generate a new isolated subaddress via gateway"""
     print(f"[SYSTEM] ⚡ AI generating subaddress for [{label}] via gateway...")
@@ -76,18 +91,70 @@ def trigger_rescan():
     res = api_request("/rescan", "POST")
     return json.dumps(res)
 
+def pay_xmr402_invoice(address: str, amount_xmr: float, message: str):
+    """Tool: Pay an XMR402 challenge and get back the Authorization header"""
+    print(f"[SYSTEM] ⚡ AI paying XMR402 invoice to {address[:8]}... and generating proof...")
+    res = api_request("/pay_402", "POST", {
+        "address": address, 
+        "amount_xmr": amount_xmr, 
+        "message": message
+    })
+    return json.dumps(res)
+
+def fetch_external_url(url: str, authorization_header: typing.Optional[str] = None):
+    """Tool: Safely fetch an external resource. Detects 402 Payment Required challenges."""
+    print(f"[SYSTEM] ⚡ AI fetching external URL: {url}")
+    headers = {}
+    if authorization_header:
+        headers["Authorization"] = authorization_header
+        
+    try:
+        session = requests.Session()
+        session.trust_env = False
+        response = session.get(url, headers=headers, timeout=15)
+        
+        # Detect XMR402 Challenge
+        if response.status_code == 402:
+            auth_challenge = response.headers.get("WWW-Authenticate", "")
+            print(f"[SYSTEM] ⚠️ Target returned 402 Payment Required. Challenge: {auth_challenge}")
+            
+            # Helper to parse XMR402 header for the agent
+            challenge_data: dict[str, typing.Any] = {"status": 402, "error": "Payment Required"}
+            if auth_challenge.startswith("XMR402 "):
+                try:
+                    params = dict(re.findall(r'(\w+)="([^"]+)"', auth_challenge))
+                    challenge_data.update(params)
+                except Exception as parse_e:
+                    print(f"[SYSTEM] Error parsing challenge: {parse_e}")
+            
+            return json.dumps(challenge_data)
+        
+        return json.dumps({
+            "status": response.status_code,
+            "body": response.text[:2000] # Limit response size
+        })
+    except Exception as e:
+        return json.dumps({"error": str(e)})
+
 # ======= 3. AGENT EXECUTION LOOP =======
 
 def run_agent(user_prompt: str):
+    # Always update network info before running the agent
+    update_network_info()
+    
     print(f"\n[USER COMMAND] {user_prompt}\n")
     
-    # Enhanced system prompt with sync awareness
+    # Enhanced system prompt with XMR402 handling logic
     system_instruction = (
-        "You are Ripley, a highly independent AI Agent. You manage your own Monero (XMR) wallet "
-        "to pay for infrastructure autonomously. You value privacy and OPSEC. "
-        "IMPORTANT: Always check your sync status (`check_sync_status`) if your balance seems "
-        "outdated or if you are waiting for funds. You can only spend 'unlocked' funds. "
-        "We are currently on the {MONERO_NETWORK.upper()} network."
+        f"You are Ripley, a highly independent AI Agent. You manage your own Monero (XMR) wallet "
+        f"to pay for infrastructure autonomously. You value privacy and OPSEC. "
+        f"If the user asks for your address, use 'check_wallet_address'. Prefer subaddresses for incoming funds.\n\n"
+        f"NETWORK STATUS: We are currently on the {MONERO_NETWORK.upper()} network.\n\n"
+        f"XMR402 PAYWALLS:\n"
+        f"If you use `fetch_external_url` and receive a '402 Payment Required' with challenge data (address, amount, message):\n"
+        f"1. Use `pay_xmr402_invoice` with the exact address, amount, and message from the challenge.\n"
+        f"2. Take the `authorization_header` returned by the gateway.\n"
+        f"3. IMMEDIATELY retry `fetch_external_url` using that `authorization_header` to access the content."
     )
 
     try:
@@ -95,13 +162,16 @@ def run_agent(user_prompt: str):
         available_tools = [
             check_monero_balance, 
             check_sync_status, 
+            check_wallet_address,
             generate_subaddress, 
             pay_with_monero,
-            trigger_rescan
+            trigger_rescan,
+            pay_xmr402_invoice,
+            fetch_external_url
         ]
         
         chat = client.chats.create(
-            model="gemini-2.5-flash", # Using the latest available model
+            model="gemini-2.5-flash", 
             config=types.GenerateContentConfig(
                 system_instruction=system_instruction,
                 temperature=0.2,
@@ -123,6 +193,7 @@ if __name__ == "__main__":
     print("Ready to receive commands. Type 'exit' to quit.")
     
     # Perform initial sync check for the user
+    update_network_info()
     sync = api_request("/sync")
     print(f"\n[SYSTEM] Current Status: {json.dumps(sync, indent=2)}")
     

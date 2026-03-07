@@ -3,6 +3,8 @@ from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
 import requests
 import os
+import time
+import json
 
 app = FastAPI(title="Monero Agent API")
 
@@ -21,6 +23,58 @@ RPC_URL = os.environ.get("WALLET_RPC_URL", "http://127.0.0.1:38083/json_rpc")
 MONERO_NETWORK = os.environ.get("MONERO_NETWORK", "stagenet").lower()
 DEFAULT_WALLET = f"agent_{MONERO_NETWORK}"
 DEFAULT_PASS = "super_secret_password"
+
+# Spending Limits
+MAX_XMR_PER_REQUEST = float(os.environ.get("MAX_XMR_PER_REQUEST", "0.1"))
+MAX_XMR_PER_DAY = float(os.environ.get("MAX_XMR_PER_DAY", "0.5"))
+DATA_DIR = os.environ.get("DATA_DIR", "/app/data")
+SPEND_TRACKER_FILE = os.path.join(DATA_DIR, "spend_log.json")
+
+# Ensure data dir exists
+os.makedirs(DATA_DIR, exist_ok=True)
+
+def check_spending_limits(amount_xmr: float):
+    if amount_xmr > MAX_XMR_PER_REQUEST:
+        raise HTTPException(status_code=403, detail=f"Request exceeds MAX_XMR_PER_REQUEST limit ({MAX_XMR_PER_REQUEST} XMR)")
+    
+    # Load past spends
+    spends = []
+    if os.path.exists(SPEND_TRACKER_FILE):
+        try:
+            with open(SPEND_TRACKER_FILE, "r") as f:
+                spends = json.load(f)
+        except:
+            pass
+            
+    # Filter spends from the last 24 hours
+    current_time = time.time()
+    recent_spends = [s for s in spends if current_time - s.get("timestamp", 0) < 86400]
+    
+    total_recent_spend = sum(s.get("amount_xmr", 0) for s in recent_spends)
+    
+    if total_recent_spend + amount_xmr > MAX_XMR_PER_DAY:
+        raise HTTPException(
+            status_code=403, 
+            detail=f"Daily spending limit reached. ({total_recent_spend} + {amount_xmr} > {MAX_XMR_PER_DAY} XMR)"
+        )
+
+def record_spend(amount_xmr: float):
+    spends = []
+    if os.path.exists(SPEND_TRACKER_FILE):
+        try:
+            with open(SPEND_TRACKER_FILE, "r") as f:
+                spends = json.load(f)
+        except:
+            pass
+            
+    recent_spends = [s for s in spends if time.time() - s.get("timestamp", 0) < 86400]
+    recent_spends.append({"timestamp": time.time(), "amount_xmr": amount_xmr})
+    
+    try:
+        with open(SPEND_TRACKER_FILE, "w") as f:
+            json.dump(recent_spends, f, indent=2)
+    except Exception as e:
+        print(f"Error saving spend log: {e}")
 
 def rpc_call(method, params=None, auto_init=True):
     payload = {
@@ -94,14 +148,28 @@ def create_subaddress(req: SubaddressRequest):
         "label": req.label
     }
 
+@app.get("/address", dependencies=[Depends(verify_api_key)])
+def get_address():
+    """Get the primary address for the wallet"""
+    res = rpc_call("get_address", {"account_index": 0, "address_index": 0})
+    if "error" in res:
+        raise HTTPException(status_code=500, detail=res["error"])
+    
+    return {
+        "address": res.get("address"),
+        "network": MONERO_NETWORK
+    }
+
 @app.get("/sync", dependencies=[Depends(verify_api_key)])
 def get_sync_status():
     # Attempt to get the real network height from multiple public sources
     if MONERO_NETWORK == "mainnet":
         NODES = [
-            "https://nodes.hashvault.pro:443/json_rpc",
+            "https://rpc.kyc.rip/json_rpc",
+            "https://node.monero.one/json_rpc",
+            "https://node.sethforprivacy.com/json_rpc",
             "https://node.supportxmr.com:443/json_rpc",
-            "https://xmr-node.cakewallet.com:443/json_rpc"
+            "https://xmr-node.cakewallet.com:18089/json_rpc"
         ]
     elif MONERO_NETWORK == "stagenet":
         NODES = [
@@ -110,7 +178,9 @@ def get_sync_status():
             "http://192.99.8.110:38089/json_rpc"
         ]
     else: # testnet or other
-        NODES = []
+        NODES = [
+            "https://rpc-testnet.kyc.rip/json_rpc",
+        ]
     
     network_height = 0
     node_payload = {"jsonrpc":"2.0", "id":"0", "method":"get_info"}
@@ -158,6 +228,8 @@ def rescan_wallet():
 
 @app.post("/transfer", dependencies=[Depends(verify_api_key)])
 def transfer(req: TransferRequest):
+    check_spending_limits(req.amount_xmr)
+    
     amount_atomic = int(req.amount_xmr * 1e12)
     res = rpc_call("transfer", {
         "destinations": [{"address": req.address, "amount": amount_atomic}],
@@ -167,11 +239,58 @@ def transfer(req: TransferRequest):
     
     if "error" in res:
         raise HTTPException(status_code=500, detail=res["error"])
+        
+    record_spend(req.amount_xmr)
     
     return {
         "status": "Transferred",
         "tx_hash": res.get("tx_hash"),
         "fee_xmr": float(res.get("fee", 0)) / 1e12
+    }
+
+class Pay402Request(BaseModel):
+    address: str
+    amount_xmr: float
+    message: str
+
+@app.post("/pay_402", dependencies=[Depends(verify_api_key)])
+def pay_402_invoice(req: Pay402Request):
+    """XMR402 Protocol: Transfers funds and generates a TX proof"""
+    check_spending_limits(req.amount_xmr)
+    
+    amount_atomic = int(req.amount_xmr * 1e12)
+    
+    # 1. Transfer
+    tx_res = rpc_call("transfer", {
+        "destinations": [{"address": req.address, "amount": amount_atomic}],
+        "account_index": 0,
+        "priority": 1
+    })
+    
+    if "error" in tx_res:
+        raise HTTPException(status_code=500, detail=tx_res["error"])
+        
+    record_spend(req.amount_xmr)
+    tx_hash = tx_res.get("tx_hash")
+
+    # 2. Generate Proof
+    proof_res = rpc_call("get_tx_proof", {
+        "txid": tx_hash,
+        "address": req.address,
+        "message": req.message
+    })
+    
+    if "error" in proof_res:
+        raise HTTPException(status_code=500, detail=f"Failed to generate proof: {proof_res['error']}")
+    
+    signature = proof_res.get("signature")
+    auth_header = f'XMR402 txid="{tx_hash}", proof="{signature}"'
+    
+    return {
+        "status": "PAID",
+        "authorization_header": auth_header,
+        "txid": tx_hash,
+        "proof": signature
     }
 
 if __name__ == "__main__":

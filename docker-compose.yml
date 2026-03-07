@@ -9,15 +9,21 @@ services:
       - "127.0.0.1:38089:38089" # RPC
     volumes:
       - ./data/monerod:/home/monero/.bitmonero
+    entrypoint: ["/bin/sh", "-c"]
     command:
-      - --${MONERO_NETWORK:-stagenet}
-      - --rpc-bind-ip=0.0.0.0
-      - --rpc-bind-port=38089
-      - --confirm-external-bind
-      - --restricted-rpc
-      # Bootstrap Node: Remote fallback to allow immediate use while local node syncs
-      - --bootstrap-daemon-address=${MONERO_BOOTSTRAP_ADDRESS:-rpc-${MONERO_NETWORK:-stagenet}.kyc.rip:443}
-      - --log-level=0
+      - |
+        if [ "$${MONERO_NETWORK:-stagenet}" = "mainnet" ]; then
+          NET_FLAG="";
+        else
+          NET_FLAG="--$${MONERO_NETWORK:-stagenet}";
+        fi;
+        exec monerod $$NET_FLAG \
+          --rpc-bind-ip=0.0.0.0 \
+          --rpc-bind-port=38089 \
+          --confirm-external-bind \
+          --restricted-rpc \
+          --bootstrap-daemon-address=${MONERO_BOOTSTRAP_ADDRESS:-rpc-${MONERO_NETWORK:-stagenet}.kyc.rip:443} \
+          --log-level=0
 
   wallet-rpc:
     image: sethsimmons/simple-monero-wallet-rpc:latest
@@ -27,14 +33,23 @@ services:
       - "127.0.0.1:38083:38083" # Localhost only Wallet RPC
     volumes:
       - ./data/wallet:/home/monero
+    entrypoint: ["/bin/sh", "-c"]
     command:
-      - --${MONERO_NETWORK:-stagenet}
-      - --rpc-bind-port=38083
-      - --wallet-dir=/home/monero
-      - --disable-rpc-login
-      # Primary Node: Either the local monerod service or a remote node
-      - --daemon-address=${MONERO_DAEMON_ADDRESS:-rpc-${MONERO_NETWORK:-stagenet}.kyc.rip:443}
-      - --daemon-ssl=${MONERO_DAEMON_SSL:-enabled}
+      - |
+        if [ "$${MONERO_NETWORK:-stagenet}" = "mainnet" ]; then
+          NET_FLAG="";
+        else
+          NET_FLAG="--$${MONERO_NETWORK:-stagenet}";
+        fi;
+        exec monero-wallet-rpc $$NET_FLAG \
+          --rpc-bind-ip=0.0.0.0 \
+          --confirm-external-bind \
+          --rpc-bind-port=38083 \
+          --wallet-dir=/home/monero \
+          --disable-rpc-login \
+          --daemon-address=${MONERO_DAEMON_ADDRESS:-rpc-${MONERO_NETWORK:-stagenet}.kyc.rip:443} \
+          --daemon-ssl=${MONERO_DAEMON_SSL:-enabled} \
+          --daemon-ssl-allow-any-cert
 
   gateway:
     image: ghcr.io/kyc-rip/ripley-xmr-gateway:latest
@@ -44,16 +59,21 @@ services:
       - wallet-rpc
     ports:
       - "127.0.0.1:38084:38084"
+    volumes:
+      - ./data/gateway:/app/data
     environment:
       - WALLET_RPC_URL=http://wallet-rpc:38083/json_rpc
       - MONERO_NETWORK=${MONERO_NETWORK:-stagenet}
       - AGENT_API_KEY=${AGENT_API_KEY:-ripley_secure_key_123}
+      - MAX_XMR_PER_REQUEST=${MAX_XMR_PER_REQUEST:-0.1}
+      - MAX_XMR_PER_DAY=${MAX_XMR_PER_DAY:-0.5}
+      - DATA_DIR=/app/data
 
   tunnel:
     image: cloudflare/cloudflared
     container_name: monero-gateway-tunnel
     restart: unless-stopped
-    command: tunnel --no-autoupdate run
+    command: tunnel run --no-autoupdate
     environment:
       - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
     depends_on:
