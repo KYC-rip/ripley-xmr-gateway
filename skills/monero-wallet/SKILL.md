@@ -73,6 +73,8 @@ If the Python environment is unavailable, use `curl` to talk directly to the Gat
 - **Generate Address**: `POST /subaddress {"label": "..."}`
 - **Transfer**: `POST /transfer {"address": "...", "amount_xmr": 0.0}`
 - **Pay 402 Challenge**: `POST /pay_402 {"address": "...", "amount_xmr": 0.0, "message": "..."}`
+- **Recover Proof**: `POST /get_proof {"txid": "...", "address": "...", "message": "..."}`
+- **Transaction Log**: `GET /transactions`
 
 Example:
 ```bash
@@ -100,6 +102,8 @@ python3 scripts/monero_wallet_rpc.py pay-402 "<address>" <amount_in_xmr> "<messa
 ```
 This returns JSON containing `txid`, `proof`, and `authorization_header`.
 
+**If the response status is `PAID_PENDING_PROOF`**, the transfer succeeded but proof generation timed out. Use the recovery flow below.
+
 ### Step 3: Retry with Proof
 Re-issue your original HTTP request with the authorization header from Step 2:
 ```http
@@ -107,15 +111,44 @@ Authorization: XMR402 txid="<hash>", proof="<signature>"
 ```
 The server will verify the 0-conf transaction proof and return **HTTP 200 OK** with the protected content.
 
+### Payment Recovery
+If proof generation fails (daemon timeout, network issue), the gateway logs the `txid` and returns `PAID_PENDING_PROOF`. To recover:
+
+```bash
+# Recover proof for a past transaction
+curl -X POST -H "X-API-KEY: $AGENT_API_KEY" -H "Content-Type: application/json" \
+  -d '{"txid": "<txid>", "address": "<address>", "message": "<message>"}' \
+  http://127.0.0.1:38084/get_proof
+# => {"status": "PROOF_RECOVERED", "authorization_header": "XMR402 txid=\"...\", proof=\"...\"", ...}
+```
+
+Then retry the protected URL with the recovered `authorization_header`.
+
+### Duplicate Prevention
+**CRITICAL**: NEVER pay for the same `message` (nonce) twice. Before paying, check the transaction log:
+```bash
+curl -H "X-API-KEY: $AGENT_API_KEY" http://127.0.0.1:38084/transactions
+```
+If you find a matching `message` in the log, use `/get_proof` with its `txid` instead of paying again.
+
 ### Example Flow
 ```bash
 # 1. Attempt access (returns 402)
 curl -i https://api.example.com/protected
 # => 402, WWW-Authenticate: XMR402 address="5...", amount="10000000000", message="abc123..."
 
-# 2. Pay the challenge (amount is 0.01 XMR = 10000000000 piconero)
+# 2. Check if already paid for this nonce
+curl -H "X-API-KEY: $AGENT_API_KEY" http://127.0.0.1:38084/transactions
+# => If message "abc123..." exists, skip to step 2b. Otherwise, pay:
+
+# 2a. Pay the challenge (amount is 0.01 XMR = 10000000000 piconero)
 python3 scripts/monero_wallet_rpc.py pay-402 "5..." 0.01 "abc123..."
 # => {"authorization_header": "XMR402 txid=\"...\", proof=\"...\"", ...}
+
+# 2b. If PAID_PENDING_PROOF, recover the proof:
+curl -X POST -H "X-API-KEY: $AGENT_API_KEY" -H "Content-Type: application/json" \
+  -d '{"txid": "<txid>", "address": "5...", "message": "abc123..."}' \
+  http://127.0.0.1:38084/get_proof
 
 # 3. Retry with proof
 curl -H 'Authorization: XMR402 txid="...", proof="..."' https://api.example.com/protected
@@ -127,4 +160,5 @@ curl -H 'Authorization: XMR402 txid="...", proof="..."' https://api.example.com/
 - **Privacy**: Use a unique subaddress per transaction to prevent on-chain correlation.
 - **OPSEC**: Keep your `AGENT_API_KEY` secret. Never transmit it to untrusted endpoints.
 - **Locking**: Transaction change is locked for 10 confirmations (~20 mins).
+- **Host Binding**: The gateway defaults to `127.0.0.1` (localhost only). In Docker, set `GATEWAY_HOST=0.0.0.0` with `127.0.0.1` host port binding.
 
