@@ -280,17 +280,25 @@ def pay_402_invoice(req: Pay402Request):
     if not tx_hash:
         raise HTTPException(status_code=500, detail=f"No tx_hash in transfer response! Response: {tx_res}")
 
-    # 2. Generate Proof
-    proof_res = rpc_call("get_tx_proof", {
-        "txid": tx_hash,
-        "address": req.address,
-        "message": req.message
-    })
+    # 2. Generate Proof (retry — remote daemon needs time to receive the tx)
+    proof_res = None
+    max_retries = 5
+    for attempt in range(max_retries):
+        proof_res = rpc_call("get_tx_proof", {
+            "txid": tx_hash,
+            "address": req.address,
+            "message": req.message
+        })
+        
+        if "error" not in proof_res:
+            break
+        
+        print(f"[XMR402] Proof attempt {attempt + 1}/{max_retries} failed: {proof_res.get('error')}. Retrying in 3s...")
+        time.sleep(3)
     
-    print(f"DEBUG: proof response: {proof_res}")
-    
-    if "error" in proof_res:
-        raise HTTPException(status_code=500, detail=f"Failed to generate proof: {proof_res['error']}")
+    if not proof_res or "error" in proof_res:
+        err_msg = proof_res.get('error', 'unknown') if proof_res else 'unknown'
+        raise HTTPException(status_code=500, detail=f"Failed to generate proof after {max_retries} attempts: {err_msg}")
     
     signature = proof_res.get("signature")
     auth_header = f'XMR402 txid="{tx_hash}", proof="{signature}"'
