@@ -68,6 +68,7 @@ services:
       - MAX_XMR_PER_REQUEST=${MAX_XMR_PER_REQUEST:-0.1}
       - MAX_XMR_PER_DAY=${MAX_XMR_PER_DAY:-0.5}
       - DATA_DIR=/app/data
+      - GATEWAY_HOST=0.0.0.0
 
   tunnel:
     image: cloudflare/cloudflared

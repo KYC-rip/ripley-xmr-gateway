@@ -312,5 +312,7 @@ def pay_402_invoice(req: Pay402Request):
 
 if __name__ == "__main__":
     import uvicorn
-    # Enable reload for easier development within the docker volume
-    uvicorn.run("main:app", host="0.0.0.0", port=38084, reload=True)
+    # Default to 127.0.0.1 for security if run directly on a server. 
+    # Docker overrides this to 0.0.0.0 internally, but host-port binding handles external security.
+    host = os.environ.get("GATEWAY_HOST", "127.0.0.1")
+    uvicorn.run("main:app", host=host, port=38084, reload=True)
