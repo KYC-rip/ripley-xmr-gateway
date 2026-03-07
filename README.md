@@ -44,38 +44,48 @@ ln -s /path/to/ripley-xmr-gateway/skills/monero-wallet ~/.openclaw/skills/monero
 
 ## Features
 - **Stateless AI Integration**: Connect any AI model (Gemini, GPT-4, etc.) to Monero via standard HTTP.
-- **Sync Tracking**: Real-time blockchain synchronization monitoring.
+- **XMR402 Paywall Support**: Native support for the [XMR402 Protocol](https://xmr402.org) to handle autonomous payments.
+- **Payment Recovery**: Built-in transaction logging and proof recovery for high-latency or unstable daemon connections.
+- **Duplicate Prevention**: Proof-aware logic to prevent paying the same challenge twice.
 - **Privacy First**: Automatic subaddress generation and OPSEC-focused transfers.
 - **Global Reach**: Integrated Cloudflare Tunnel support for global access without open ports.
-- **Secure**: Header-based `X-API-KEY` authentication.
+- **Secure**: Header-based `X-API-KEY` authentication and 127.0.0.1 host binding by default.
 
+## XMR402 Protocol (Autonomous Payments)
 
-### Configuration
+Ripley 1.0.1+ implements a robust version of the XMR402 protocol designed for autonomous agents.
+
+### 1. Unified Payment Endpoint
+The Agent simply calls `POST /pay_402` with the challenge data. The gateway handles the transfer, retries proof generation, and returns a ready-to-use `Authorization` header.
+
+### 2. Recovery Mechanism
+If a transaction succeeds but proof generation fails (e.g., daemon timeout), the gateway returns `PAID_PENDING_PROOF`. The agent can then use:
+- `GET /transactions`: To see all recent record of payments.
+- `POST /get_proof`: To recover a proof for a specific past `txid`.
+
+### 3. Duplicate Prevention
+Agents are instructed via the `monero-wallet` skill to check the transaction log before paying. This prevents agents from wasting XMR by double-paying for the same nonce.
+
+## Configuration
 Edit the `.env` file to customize your gateway:
 - `MONERO_NETWORK`: Target network (`mainnet` or `stagenet`).
 - `AGENT_API_KEY`: Secure key for gateway authentication.
-- `CLOUDFLARE_TUNNEL_TOKEN`: Optional, for global access.
-
-### 4. Verify
-```bash
-curl -H "X-API-KEY: your_key_here" http://localhost:38084/sync
-```
-
-## Need XMR? 💰
-If you need to fund your agent's wallet, use our [non-custodial swap services](https://kyc.rip/swap) to acquire Monero (XMR) anonymously.
+- `MAX_XMR_PER_REQUEST`: (Default: 0.1) Limit per payment.
+- `MAX_XMR_PER_DAY`: (Default: 0.5) Daily spending cap.
+- `GATEWAY_HOST`: (Default: 127.0.0.1) Bound address for the API.
 
 ## AI Agent Integration
 
-This gateway is designed to be used as a **Skill**. See `skills/monero-wallet/SKILL.md` for the machine-readable instruction set that you can provide to your AI agents.
+This gateway is designed to be used as a **Skill**. See [SKILL.md](skills/monero-wallet/SKILL.md) for the machine-readable instruction set that you can provide to your AI agents.
 
 ### Example: Python (Ripley)
-Check out `examples/ripley_agent.py` for a full implementation of an AI agent using this gateway.
+Check out [ripley_agent.py](examples/ripley_agent.py) for a reference implementation of a persistent-session AI agent that handles XMR402 challenges, subaddress generation, and payment recovery.
 
 ## Project Structure
 - `src/`: Core FastAPI gateway implementation.
 - `skills/`: `agentskills.io` compatible skill definitions.
-- `docker/`: Build configurations.
-- `examples/`: Reference implementations.
+- `scripts/`: Implementation of RPC helpers and installers.
+- `examples/`: Reference AI agent implementations.
 
 ## License
 MIT
